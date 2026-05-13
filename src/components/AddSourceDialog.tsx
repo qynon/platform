@@ -4,8 +4,9 @@ import { useApp } from "@/lib/store";
 import { t } from "@/lib/i18n";
 import { I } from "./Icon";
 import type { ParsedSource } from "@/lib/parsers";
+import type { AssignmentSpec } from "@/lib/types";
 
-type Tab = "files" | "url" | "paste";
+type Tab = "files" | "url" | "paste" | "assignment";
 
 export function AddSourceDialog({ onClose }: { onClose: () => void }) {
   const addSource = useApp((s) => s.addSource);
@@ -18,7 +19,7 @@ export function AddSourceDialog({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  async function handleParsed(parsed: ParsedSource) {
+  async function handleParsed(parsed: ParsedSource & { assignment?: AssignmentSpec }) {
     const src = await addSource({
       kind: parsed.kind,
       title: parsed.title,
@@ -26,6 +27,8 @@ export function AddSourceDialog({ onClose }: { onClose: () => void }) {
       url: parsed.url,
       mime: parsed.mime,
       bytes: parsed.bytes,
+      imageDataUri: parsed.imageDataUri,
+      assignment: parsed.assignment,
       summary: undefined,
       topics: undefined,
       notebookId: useApp.getState().currentNotebookId ?? "",
@@ -106,6 +109,43 @@ export function AddSourceDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // --- Assignment tab state ---
+  const [assignmentSubject, setAssignmentSubject] = useState("");
+  const [assignmentDifficulty, setAssignmentDifficulty] = useState<
+    "easy" | "medium" | "hard"
+  >("medium");
+  const [assignmentRubric, setAssignmentRubric] = useState("");
+  const [assignmentText, setAssignmentText] = useState("");
+  const [assignmentTitle, setAssignmentTitle] = useState("");
+
+  async function importAssignment() {
+    if (!assignmentText.trim()) return;
+    setError(null);
+    setImporting(true);
+    try {
+      await handleParsed({
+        kind: "assignment",
+        title:
+          assignmentTitle.trim() ||
+          `${t.sources.assignmentTitle}: ${assignmentText
+            .trim()
+            .slice(0, 40)}...`,
+        content: assignmentText.trim(),
+        mime: "text/plain",
+        assignment: {
+          subject: assignmentSubject.trim() || undefined,
+          difficulty: assignmentDifficulty,
+          rubric: assignmentRubric.trim() || undefined,
+        },
+      });
+      onClose();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
@@ -153,6 +193,12 @@ export function AddSourceDialog({ onClose }: { onClose: () => void }) {
             >
               <I.FileText className="w-4 h-4" /> {t.sources.pastedText}
             </button>
+            <button
+              className={`btn ${tab === "assignment" ? "btn-primary" : ""}`}
+              onClick={() => setTab("assignment")}
+            >
+              <I.BookOpen className="w-4 h-4" /> {t.sources.assignment}
+            </button>
           </div>
 
           {tab === "files" && (
@@ -186,6 +232,64 @@ export function AddSourceDialog({ onClose }: { onClose: () => void }) {
                 className="btn btn-primary disabled:opacity-50"
               >
                 {importing ? <I.Loader2 className="w-4 h-4 animate-spin" /> : <I.Plus className="w-4 h-4" />}
+                {t.sources.add_}
+              </button>
+            </div>
+          )}
+
+          {tab === "assignment" && (
+            <div className="mt-4 space-y-2">
+              <input
+                value={assignmentTitle}
+                onChange={(e) => setAssignmentTitle(e.target.value)}
+                placeholder="Атау"
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={assignmentSubject}
+                  onChange={(e) => setAssignmentSubject(e.target.value)}
+                  placeholder={t.sources.assignmentSubjectPh}
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
+                />
+                <select
+                  value={assignmentDifficulty}
+                  onChange={(e) =>
+                    setAssignmentDifficulty(
+                      e.target.value as "easy" | "medium" | "hard",
+                    )
+                  }
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white cursor-pointer"
+                >
+                  <option value="easy">{t.studio.easy}</option>
+                  <option value="medium">{t.studio.medium}</option>
+                  <option value="hard">{t.studio.hard}</option>
+                </select>
+              </div>
+              <textarea
+                value={assignmentText}
+                onChange={(e) => setAssignmentText(e.target.value)}
+                placeholder={t.sources.assignmentTextPh}
+                rows={6}
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 font-mono"
+              />
+              <textarea
+                value={assignmentRubric}
+                onChange={(e) => setAssignmentRubric(e.target.value)}
+                placeholder={t.sources.assignmentRubricPh}
+                rows={3}
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
+              />
+              <button
+                disabled={importing || !assignmentText.trim()}
+                onClick={importAssignment}
+                className="btn btn-primary disabled:opacity-50"
+              >
+                {importing ? (
+                  <I.Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <I.Plus className="w-4 h-4" />
+                )}
                 {t.sources.add_}
               </button>
             </div>

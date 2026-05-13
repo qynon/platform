@@ -18,7 +18,7 @@ export function NotebookHeader({ onBack }: { onBack: () => void }) {
   if (!nb) return null;
 
   return (
-    <header className="flex items-center gap-3 px-4 py-2 bg-white border-b border-border">
+    <header className="flex items-center gap-2 px-4 py-2 bg-white border-b border-border">
       <button
         onClick={onBack}
         className="p-2 rounded-full hover:bg-zinc-100 cursor-pointer"
@@ -26,6 +26,12 @@ export function NotebookHeader({ onBack }: { onBack: () => void }) {
       >
         <I.ArrowLeft className="w-5 h-5" />
       </button>
+      <div className="flex items-center gap-1.5 mr-1">
+        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500" />
+        <span className="text-sm font-semibold text-zinc-700 hidden md:inline">
+          {t.app.name}
+        </span>
+      </div>
       <div className="relative">
         <button
           onClick={() => setShowEmoji((x) => !x)}
@@ -83,19 +89,16 @@ export function NotebookHeader({ onBack }: { onBack: () => void }) {
           {nb.title}
         </button>
       )}
-      <div className="ml-auto flex items-center gap-2 text-sm text-zinc-600">
-        <button className="btn">
-          <I.Sparkles className="w-4 h-4" /> {t.app.analytics}
+      <div className="ml-auto flex items-center gap-1.5 text-sm text-zinc-600">
+        <button className="p-2 rounded-full hover:bg-zinc-100 cursor-pointer" title={t.app.analytics}>
+          <I.Sparkles className="w-4 h-4" />
         </button>
-        <button className="btn">
-          <I.Share2 className="w-4 h-4" /> {t.app.share}
+        <button className="p-2 rounded-full hover:bg-zinc-100 cursor-pointer" title={t.app.share}>
+          <I.Share2 className="w-4 h-4" />
         </button>
-        <button className="btn">
-          <I.Settings className="w-4 h-4" /> {t.app.settings}
+        <button className="p-2 rounded-full hover:bg-zinc-100 cursor-pointer" title={t.app.settings}>
+          <I.Settings className="w-4 h-4" />
         </button>
-        <span className="px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold">
-          {t.app.pro}
-        </span>
       </div>
     </header>
   );

@@ -30,6 +30,7 @@ const KIND_INSTRUCTIONS: Record<StudioArtifactKind, string> = {
 Алия: ...
 Use Kazakh by default unless the source is in another language. 10-15 exchanges. Add bracketed stage directions sparingly like [pause] or [laughs].`,
   "video-overview": `Write a JSON script for a narrated visual deep-dive video: {"title":"...","scenes":[{"narration":"...","visual":"description of on-screen visual","duration_sec":6}, ...]} with 8-15 scenes.`,
+  practice: `(handled by /api/practice — should not be routed through /api/studio)`,
 };
 
 export async function POST(req: NextRequest) {

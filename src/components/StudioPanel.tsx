@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/lib/store";
 import { t } from "@/lib/i18n";
 import { I } from "./Icon";
@@ -38,6 +38,18 @@ export function StudioPanel({ collapsed, onCollapse }: { collapsed: boolean; onC
   const [error, setError] = useState<string | null>(null);
 
   const hasSources = sources.some((s) => s.enabled);
+
+  // Allow other components (e.g. SourcesPanel) to request opening an artifact
+  // viewer via a `window` event.
+  useEffect(() => {
+    function onOpen(e: Event) {
+      const detail = (e as CustomEvent<string>).detail;
+      const a = artifacts.find((x) => x.id === detail);
+      if (a) setView(a);
+    }
+    window.addEventListener("openArtifact", onOpen);
+    return () => window.removeEventListener("openArtifact", onOpen);
+  }, [artifacts]);
 
   async function generate(
     kind: StudioArtifactKind,
@@ -100,39 +112,42 @@ export function StudioPanel({ collapsed, onCollapse }: { collapsed: boolean; onC
         </button>
       </div>
 
-      <div className="p-3 grid grid-cols-2 gap-2">
+      <div className="p-3 grid grid-cols-3 gap-2">
         {CARDS.map((c) => (
-          <div key={c.kind} className={`${c.color} rounded-xl p-3 group`}>
-            <div className="flex items-center justify-between text-xs font-medium text-zinc-800">
-              <div className="flex items-center gap-1.5 truncate">
-                {c.icon}
-                <span className="truncate">{c.label}</span>
-              </div>
-              <button
-                disabled={!hasSources}
-                onClick={() => setCustomizing(c.kind)}
-                className="p-0.5 hover:bg-white/60 rounded cursor-pointer disabled:opacity-40"
-                title={t.studio.customize}
-              >
-                <I.Pencil className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <button
-                disabled={!hasSources || generating === c.kind}
-                onClick={() => generate(c.kind)}
-                className="text-[11px] px-2 py-1 rounded-full bg-white/80 hover:bg-white border border-zinc-200 disabled:opacity-40 cursor-pointer flex items-center gap-1"
-              >
+          <button
+            key={c.kind}
+            disabled={!hasSources || generating === c.kind}
+            onClick={() => generate(c.kind)}
+            className={`${c.color} rounded-xl p-2.5 group cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-sm transition-shadow text-left flex flex-col gap-1`}
+            title={c.label}
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-zinc-800">
                 {generating === c.kind ? (
-                  <I.Loader2 className="w-3 h-3 animate-spin" />
+                  <I.Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <I.Plus className="w-3 h-3" />
+                  c.icon
                 )}
-                {t.studio.generate}
-              </button>
-              <I.ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+              </div>
+              {hasSources && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCustomizing(c.kind);
+                  }}
+                  className="p-0.5 hover:bg-white/60 rounded cursor-pointer"
+                  title={t.studio.customize}
+                >
+                  <I.Pencil className="w-3 h-3" />
+                </span>
+              )}
             </div>
-          </div>
+            <div className="text-[11px] font-medium text-zinc-800 leading-tight truncate">
+              {c.label}
+            </div>
+          </button>
         ))}
       </div>
 

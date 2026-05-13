@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pplxChat } from "@/lib/perplexity";
-import { buildSystemPrompt, extractCitations } from "@/lib/grounding";
+import { pplxChat, type PplxMessage } from "@/lib/perplexity";
+import {
+  buildSystemPrompt,
+  buildImageAttachments,
+  extractCitations,
+} from "@/lib/grounding";
 import type { Source, ConversationalStyle, ChatMessage } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -19,16 +23,26 @@ export async function POST(req: NextRequest) {
     const style = body.style ?? "default";
     const { systemPrompt, sourceBlocks } = buildSystemPrompt(body.sources, style);
 
-    const messages = [
-      { role: "system" as const, content: systemPrompt },
-      ...body.messages.slice(-10).map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      { role: "user" as const, content: body.question },
+    const enabled = body.sources.filter((s) => s.enabled);
+
+    // If any enabled source is an image with a data URI, send the request as
+    // a multimodal message so the model can actually see it.
+    const visionContent = buildImageAttachments(body.sources, body.question);
+    const userMessage: PplxMessage = visionContent
+      ? { role: "user", content: visionContent }
+      : { role: "user", content: body.question };
+
+    const messages: PplxMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...body.messages.slice(-10).map(
+        (m): PplxMessage => ({
+          role: m.role,
+          content: m.content,
+        }),
+      ),
+      userMessage,
     ];
 
-    const enabled = body.sources.filter((s) => s.enabled);
     const result = await pplxChat({
       model: "sonar-pro",
       messages,

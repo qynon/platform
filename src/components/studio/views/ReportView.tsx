@@ -1,9 +1,8 @@
 "use client";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type { StudioArtifact } from "@/lib/types";
 import { I } from "../../Icon";
 import { t } from "@/lib/i18n";
+import { Markdown } from "../../Markdown";
 
 export function ReportView({ artifact }: { artifact: StudioArtifact }) {
   function downloadMd() {
@@ -22,8 +21,8 @@ export function ReportView({ artifact }: { artifact: StudioArtifact }) {
           <I.Download className="w-3.5 h-3.5" /> {t.studio.download} (.md)
         </button>
       </div>
-      <article className="markdown-body prose-sm">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{artifact.body}</ReactMarkdown>
+      <article className="prose-sm">
+        <Markdown>{artifact.body}</Markdown>
       </article>
     </div>
   );

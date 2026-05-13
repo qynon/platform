@@ -25,6 +25,8 @@ function srcIcon(kind: SourceKind) {
       return <I.FileText className="w-4 h-4 text-blue-700" />;
     case "pptx":
       return <I.Presentation className="w-4 h-4 text-amber-600" />;
+    case "assignment":
+      return <I.BookOpen className="w-4 h-4 text-purple-600" />;
     default:
       return <I.FileText className="w-4 h-4 text-zinc-500" />;
   }
@@ -33,8 +35,53 @@ function srcIcon(kind: SourceKind) {
 function SourceRow({ src }: { src: Source }) {
   const toggle = useApp((s) => s.toggleSource);
   const remove = useApp((s) => s.removeSource);
+  const addArtifact = useApp((s) => s.addArtifact);
+  const artifacts = useApp((s) => s.artifacts);
   const [hover, setHover] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [practiceLoading, setPracticeLoading] = useState(false);
+
+  async function startPractice() {
+    if (src.kind !== "assignment") return;
+    // If there's already a practice artifact for this source, the user can
+    // click it in the Studio list. Otherwise, generate the canonical solution
+    // and create a new practice artifact.
+    const existing = artifacts.find(
+      (a) => a.kind === "practice" && a.body.includes(src.id),
+    );
+    if (existing) {
+      // Surface the existing one (user can find it in Studio panel).
+      const ev = new CustomEvent("openArtifact", { detail: existing.id });
+      window.dispatchEvent(ev);
+      return;
+    }
+    setPracticeLoading(true);
+    try {
+      const r = await fetch("/api/practice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "solve", assignmentSource: src }),
+      });
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || "solve failed");
+      const body = JSON.stringify({
+        assignmentSourceId: src.id,
+        solution: j.content,
+      });
+      const a = await addArtifact({
+        notebookId: useApp.getState().currentNotebookId ?? "",
+        kind: "practice",
+        title: `${t.studio.practice}: ${src.title.slice(0, 40)}`,
+        body,
+        prompt: undefined,
+        options: undefined,
+      });
+      const ev = new CustomEvent("openArtifact", { detail: a.id });
+      window.dispatchEvent(ev);
+    } finally {
+      setPracticeLoading(false);
+    }
+  }
 
   return (
     <div
@@ -75,6 +122,20 @@ function SourceRow({ src }: { src: Source }) {
       </div>
       {expanded && (
         <div className="text-xs text-zinc-600 px-7 py-2 space-y-1">
+          {src.kind === "assignment" && (
+            <button
+              onClick={startPractice}
+              disabled={practiceLoading}
+              className="btn btn-primary text-xs"
+            >
+              {practiceLoading ? (
+                <I.Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <I.BookOpen className="w-3.5 h-3.5" />
+              )}
+              {t.studio.practice}
+            </button>
+          )}
           {src.url && (
             <div className="truncate">
               <a
@@ -118,7 +179,9 @@ export function SourcesPanel({ collapsed, onCollapse }: { collapsed: boolean; on
   const sources = useApp((s) => s.sources);
   const toggleAll = useApp((s) => s.toggleAllSources);
   const [addOpen, setAddOpen] = useState(false);
-  const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState<
+    null | "discover" | "fast" | "deep"
+  >(null);
   const allEnabled = sources.length > 0 && sources.every((s) => s.enabled);
 
   if (collapsed) {
@@ -133,6 +196,13 @@ export function SourcesPanel({ collapsed, onCollapse }: { collapsed: boolean; on
           title={t.sources.add}
         >
           <I.Plus className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setDiscoverOpen("discover")}
+          className="p-2 hover:bg-zinc-100 rounded cursor-pointer"
+          title={t.sources.discover}
+        >
+          <I.Search className="w-5 h-5" />
         </button>
         {sources.slice(0, 12).map((s) => (
           <div key={s.id} title={s.title} className="p-1.5">
@@ -158,13 +228,24 @@ export function SourcesPanel({ collapsed, onCollapse }: { collapsed: boolean; on
         >
           <I.Plus className="w-4 h-4" /> {t.sources.add}
         </button>
-        <button
-          onClick={() => setDiscoverOpen(true)}
-          className="w-full btn justify-start text-zinc-600 hover:text-zinc-900"
-        >
-          <I.Search className="w-4 h-4" />
-          <span className="truncate">{t.sources.discover}</span>
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setDiscoverOpen("discover")}
+            className="btn justify-center text-zinc-700"
+            title={t.sources.discover}
+          >
+            <I.Globe className="w-4 h-4" />
+            <span className="truncate text-xs">{t.sources.webMode}</span>
+          </button>
+          <button
+            onClick={() => setDiscoverOpen("fast")}
+            className="btn justify-center text-zinc-700"
+            title={t.sources.discoverFast}
+          >
+            <I.Sparkles className="w-4 h-4" />
+            <span className="truncate text-xs">{t.sources.fastResearch}</span>
+          </button>
+        </div>
       </div>
 
       {sources.length > 0 && (
@@ -194,7 +275,10 @@ export function SourcesPanel({ collapsed, onCollapse }: { collapsed: boolean; on
 
       {addOpen && <AddSourceDialog onClose={() => setAddOpen(false)} />}
       {discoverOpen && (
-        <DiscoverDialog onClose={() => setDiscoverOpen(false)} />
+        <DiscoverDialog
+          onClose={() => setDiscoverOpen(null)}
+          initialMode={discoverOpen}
+        />
       )}
     </aside>
   );

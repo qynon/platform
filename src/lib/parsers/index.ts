@@ -7,6 +7,8 @@ export interface ParsedSource {
   mime?: string;
   bytes?: number;
   url?: string;
+  /** Optional data URI for image sources, used by vision-enabled models. */
+  imageDataUri?: string;
 }
 
 const MAX_CONTENT = 500_000;

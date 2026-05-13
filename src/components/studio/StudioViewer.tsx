@@ -13,6 +13,7 @@ import { SlidesView } from "./views/SlidesView";
 import { InfographicView } from "./views/InfographicView";
 import { AudioOverviewView } from "./views/AudioOverviewView";
 import { VideoOverviewView } from "./views/VideoOverviewView";
+import { PracticeView } from "./views/PracticeView";
 
 export function StudioViewer({
   artifact,
@@ -133,6 +134,8 @@ function renderArtifact(a: StudioArtifact) {
       return <AudioOverviewView artifact={a} />;
     case "video-overview":
       return <VideoOverviewView artifact={a} />;
+    case "practice":
+      return <PracticeView artifact={a} />;
     default:
       return <pre className="p-4 text-sm whitespace-pre-wrap">{a.body}</pre>;
   }

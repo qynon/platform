@@ -1,4 +1,5 @@
 import type { Source, Citation, ConversationalStyle } from "./types";
+import type { PplxMessage } from "./perplexity";
 
 const MAX_CHARS_PER_SOURCE = 18000;
 const MAX_TOTAL_CHARS = 60000;
@@ -67,6 +68,32 @@ SOURCES (this is the ONLY corpus you may use):
 ${corpus}`;
 
   return { systemPrompt, sourceBlocks: blocks };
+}
+
+/**
+ * Build a multimodal user-message content array that attaches every enabled
+ * image source so the model can actually see them. Returns null if there are
+ * no image sources (caller should use a plain string instead).
+ */
+export function buildImageAttachments(
+  sources: Source[],
+  questionText: string,
+): PplxMessage["content"] | null {
+  const images = sources.filter(
+    (s) => s.enabled && s.kind === "image" && s.imageDataUri,
+  );
+  if (images.length === 0) return null;
+  const blocks: Array<
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } }
+  > = [{ type: "text", text: questionText }];
+  for (const img of images.slice(0, 5)) {
+    blocks.push({
+      type: "image_url",
+      image_url: { url: img.imageDataUri! },
+    });
+  }
+  return blocks;
 }
 
 /**
