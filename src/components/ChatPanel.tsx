@@ -9,16 +9,14 @@ import type { AgentModel, AgentToolType } from "@/lib/agent";
 
 type ChatMode = "chat" | "agent";
 
+// Only models verified to work on the user's Perplexity Agent tier are
+// listed. Other Agent-quickstart models (Anthropic/Google/xAI, sonar-pro,
+// sonar-reasoning) return 400 "model not supported" today — we hide them
+// instead of letting the request fail. Re-add once the tier exposes them.
 const AGENT_MODELS: { id: AgentModel; label: string }[] = [
   { id: "openai/gpt-5.4", label: "OpenAI · GPT-5.4" },
   { id: "openai/gpt-5.1", label: "OpenAI · GPT-5.1" },
-  { id: "anthropic/claude-opus-4.1", label: "Anthropic · Claude Opus 4.1" },
-  { id: "anthropic/claude-sonnet-4.5", label: "Anthropic · Claude Sonnet 4.5" },
-  { id: "google/gemini-2.5-pro", label: "Google · Gemini 2.5 Pro" },
-  { id: "google/gemini-2.5-flash", label: "Google · Gemini 2.5 Flash" },
-  { id: "xai/grok-4", label: "xAI · Grok 4" },
-  { id: "perplexity/sonar-pro", label: "Perplexity · Sonar Pro" },
-  { id: "perplexity/sonar-reasoning", label: "Perplexity · Sonar Reasoning" },
+  { id: "perplexity/sonar", label: "Perplexity · Sonar" },
 ];
 
 function CitationChip({

@@ -11,6 +11,33 @@ import {
 import { buildSystemPrompt } from "@/lib/grounding";
 import type { Source } from "@/lib/types";
 
+interface AgentOutputBlock {
+  type?: string;
+  text?: string;
+  content?: Array<{ type?: string; text?: string }>;
+}
+
+function extractText(final: {
+  output_text?: string;
+  output?: Array<Record<string, unknown>>;
+}): string {
+  if (typeof final.output_text === "string" && final.output_text.length > 0) {
+    return final.output_text;
+  }
+  const out = final.output ?? [];
+  const parts: string[] = [];
+  for (const evt of out as AgentOutputBlock[]) {
+    if (Array.isArray(evt.content)) {
+      for (const piece of evt.content) {
+        if (typeof piece.text === "string") parts.push(piece.text);
+      }
+    } else if (typeof evt.text === "string") {
+      parts.push(evt.text);
+    }
+  }
+  return parts.join("\n").trim();
+}
+
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
@@ -76,19 +103,36 @@ export async function POST(req: NextRequest) {
         ? await pollAgent(res.id, { attempts: 60, delayMs: 2000 })
         : res;
 
+    // Some tiers return the answer flat in `output_text`; others bury it in
+    // `output[].content[].text` (an array of typed message events). Walk the
+    // output structure and concatenate text fragments so the UI gets a single
+    // string no matter which shape upstream uses.
+    const flatText = extractText(final);
+
     return NextResponse.json({
       id: final.id,
       status: final.status,
       model: final.model,
-      content: final.output_text ?? "",
+      content: flatText,
       output: final.output ?? [],
       usage: final.usage,
       error: final.error,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: String(e instanceof Error ? e.message : e) },
-      { status: 500 },
-    );
+    const raw = e instanceof Error ? e.message : String(e);
+    // Translate upstream 400s about unsupported models into a friendlier hint
+    // so the UI can show "this model is unavailable on your tier" instead of
+    // a generic 500.
+    if (raw.includes("is not supported")) {
+      return NextResponse.json(
+        {
+          error:
+            "Бұл модель тарифте қолжетімсіз. Басқа модельді таңдаңыз.",
+          upstream: raw,
+        },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json({ error: raw }, { status: 500 });
   }
 }

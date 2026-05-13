@@ -18,17 +18,21 @@
  *   - Returns granular `usage` including cost in USD.
  */
 
+// The full list of multi-provider model strings is documented at
+// https://docs.perplexity.ai/docs/agent-api/quickstart, but availability
+// depends on the caller's tier. Models commented out below currently
+// return 400 "model not supported" — re-enable when the tier exposes them.
 export type AgentModel =
   | "openai/gpt-5.4"
   | "openai/gpt-5.1"
-  | "anthropic/claude-opus-4.1"
-  | "anthropic/claude-sonnet-4.5"
-  | "google/gemini-2.5-pro"
-  | "google/gemini-2.5-flash"
-  | "xai/grok-4"
-  | "perplexity/sonar"
-  | "perplexity/sonar-pro"
-  | "perplexity/sonar-reasoning";
+  // | "anthropic/claude-opus-4.1"
+  // | "anthropic/claude-sonnet-4.5"
+  // | "google/gemini-2.5-pro"
+  // | "google/gemini-2.5-flash"
+  // | "xai/grok-4"
+  // | "perplexity/sonar-pro"
+  // | "perplexity/sonar-reasoning"
+  | "perplexity/sonar";
 
 export type AgentPreset = "pro-search" | "deep-research";
 
