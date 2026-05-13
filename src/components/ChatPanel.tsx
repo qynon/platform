@@ -1,11 +1,25 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useApp } from "@/lib/store";
 import { t } from "@/lib/i18n";
 import { I } from "./Icon";
+import { Markdown } from "./Markdown";
 import type { ChatMessage, Citation, Source } from "@/lib/types";
+import type { AgentModel, AgentToolType } from "@/lib/agent";
+
+type ChatMode = "chat" | "agent";
+
+const AGENT_MODELS: { id: AgentModel; label: string }[] = [
+  { id: "openai/gpt-5.4", label: "OpenAI · GPT-5.4" },
+  { id: "openai/gpt-5.1", label: "OpenAI · GPT-5.1" },
+  { id: "anthropic/claude-opus-4.1", label: "Anthropic · Claude Opus 4.1" },
+  { id: "anthropic/claude-sonnet-4.5", label: "Anthropic · Claude Sonnet 4.5" },
+  { id: "google/gemini-2.5-pro", label: "Google · Gemini 2.5 Pro" },
+  { id: "google/gemini-2.5-flash", label: "Google · Gemini 2.5 Flash" },
+  { id: "xai/grok-4", label: "xAI · Grok 4" },
+  { id: "perplexity/sonar-pro", label: "Perplexity · Sonar Pro" },
+  { id: "perplexity/sonar-reasoning", label: "Perplexity · Sonar Reasoning" },
+];
 
 function CitationChip({
   c,
@@ -44,9 +58,7 @@ function renderWithCitations(content: string, citations: Citation[], onOpen: (c:
     <div className="markdown-body">
       {parts.map((p, i) =>
         p.type === "text" ? (
-          <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
-            {p.value as string}
-          </ReactMarkdown>
+          <Markdown key={i}>{p.value as string}</Markdown>
         ) : (
           (() => {
             const cite = citations.find((c) => c.index === p.value);
@@ -169,6 +181,18 @@ export function ChatPanel() {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [openCite, setOpenCite] = useState<{ source: Source; offset: number } | null>(null);
+  const [mode, setMode] = useState<ChatMode>("chat");
+  const [agentModel, setAgentModel] = useState<AgentModel>("openai/gpt-5.4");
+  const [agentTools, setAgentTools] = useState<Record<AgentToolType, boolean>>({
+    web_search: true,
+    fetch_url: true,
+    finance_search: false,
+    people_search: false,
+  });
+  const [lastUsage, setLastUsage] = useState<{
+    tokens?: number;
+    cost?: number;
+  } | null>(null);
 
   const enabledCount = sources.filter((s) => s.enabled).length;
 
@@ -187,25 +211,55 @@ export function ChatPanel() {
     setInput("");
     setChatLoading(true);
     try {
-      const r = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sources,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      if (mode === "agent") {
+        const tools = (Object.entries(agentTools) as [AgentToolType, boolean][])
+          .filter(([, on]) => on)
+          .map(([type]) => ({ type }));
+        const r = await fetch("/api/agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sources,
+            question: text.trim(),
+            model: agentModel,
+            tools,
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok || j.error) throw new Error(j.error || "agent failed");
+        if (j.usage) {
+          setLastUsage({
+            tokens: j.usage.total_tokens,
+            cost: j.usage.cost?.total_cost,
+          });
+        }
+        await addMessage({
+          role: "assistant",
+          content: j.content,
+          notebookId: useApp.getState().currentNotebookId ?? "",
           style: chatStyle,
-          question: text.trim(),
-        }),
-      });
-      const j = await r.json();
-      if (!r.ok || j.error) throw new Error(j.error || "chat failed");
-      await addMessage({
-        role: "assistant",
-        content: j.content,
-        citations: j.citations,
-        notebookId: useApp.getState().currentNotebookId ?? "",
-        style: chatStyle,
-      });
+        });
+      } else {
+        const r = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sources,
+            messages: messages.map((m) => ({ role: m.role, content: m.content })),
+            style: chatStyle,
+            question: text.trim(),
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok || j.error) throw new Error(j.error || "chat failed");
+        await addMessage({
+          role: "assistant",
+          content: j.content,
+          citations: j.citations,
+          notebookId: useApp.getState().currentNotebookId ?? "",
+          style: chatStyle,
+        });
+      }
     } catch (e) {
       await addMessage({
         role: "assistant",
@@ -229,9 +283,77 @@ export function ChatPanel() {
 
   return (
     <main className="flex-1 bg-white rounded-2xl m-2 mx-1 flex flex-col border border-border min-h-0">
-      <div className="px-4 py-2 border-b flex items-center justify-between text-sm">
+      <div className="px-4 py-2 border-b flex items-center justify-between text-sm gap-2 flex-wrap">
         <div className="flex items-center gap-2 font-semibold">{t.chat.title}</div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="inline-flex rounded-full bg-zinc-100 p-0.5">
+            <button
+              onClick={() => setMode("chat")}
+              className={`text-xs px-2.5 py-0.5 rounded-full cursor-pointer flex items-center gap-1 ${
+                mode === "chat" ? "bg-white shadow-sm" : "text-zinc-500"
+              }`}
+              title={t.chat_agent.chatMode}
+            >
+              <I.Sparkles className="w-3 h-3" /> {t.chat_agent.chatMode}
+            </button>
+            <button
+              onClick={() => setMode("agent")}
+              className={`text-xs px-2.5 py-0.5 rounded-full cursor-pointer flex items-center gap-1 ${
+                mode === "agent" ? "bg-white shadow-sm" : "text-zinc-500"
+              }`}
+              title={t.chat_agent.agentDesc}
+            >
+              <I.Wand2 className="w-3 h-3" /> {t.chat_agent.agentMode}
+            </button>
+          </div>
+          {mode === "agent" && (
+            <>
+              <select
+                className="text-xs border border-zinc-200 rounded-full px-2 py-1 outline-none cursor-pointer max-w-[180px]"
+                value={agentModel}
+                onChange={(e) => setAgentModel(e.target.value as AgentModel)}
+                title={t.chat_agent.selectModel}
+              >
+                {AGENT_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <details className="relative">
+                <summary className="text-xs border border-zinc-200 rounded-full px-2 py-1 cursor-pointer list-none flex items-center gap-1">
+                  <I.Hash className="w-3 h-3" /> {t.chat_agent.enableTools}
+                  <span className="text-zinc-500">
+                    ({Object.values(agentTools).filter(Boolean).length})
+                  </span>
+                </summary>
+                <div className="absolute right-0 mt-1 z-30 bg-white border border-zinc-200 rounded-xl shadow-lg p-2 min-w-[200px] space-y-1">
+                  {(
+                    [
+                      ["web_search", t.chat_agent.toolWebSearch],
+                      ["fetch_url", t.chat_agent.toolFetchUrl],
+                      ["finance_search", t.chat_agent.toolFinanceSearch],
+                      ["people_search", t.chat_agent.toolPeopleSearch],
+                    ] as Array<[AgentToolType, string]>
+                  ).map(([k, label]) => (
+                    <label
+                      key={k}
+                      className="flex items-center gap-2 text-xs cursor-pointer hover:bg-zinc-50 px-2 py-1 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={agentTools[k]}
+                        onChange={(e) =>
+                          setAgentTools((s) => ({ ...s, [k]: e.target.checked }))
+                        }
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </details>
+            </>
+          )}
           <select
             className="text-xs border border-zinc-200 rounded-full px-2 py-1 outline-none cursor-pointer"
             value={chatStyle}
@@ -254,6 +376,15 @@ export function ChatPanel() {
           )}
         </div>
       </div>
+      {lastUsage && (
+        <div className="px-4 py-1 text-[11px] text-zinc-500 border-b">
+          {t.chat_agent.tokens}: {lastUsage.tokens ?? "—"} ·{" "}
+          {t.chat_agent.cost}:{" "}
+          {lastUsage.cost !== undefined
+            ? `$${lastUsage.cost.toFixed(4)}`
+            : "—"}
+        </div>
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
         {messages.length === 0 ? (

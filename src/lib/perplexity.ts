@@ -17,9 +17,21 @@ export type PerplexityModel =
   | "sonar-reasoning-pro"
   | "sonar-deep-research";
 
+/**
+ * Multimodal content block. Perplexity's `/chat/completions` accepts
+ * either a plain string or an array of `{type:"text"|"image_url", ...}` blocks
+ * when the model supports vision (sonar / sonar-pro).
+ */
+export type PplxContent =
+  | string
+  | Array<
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    >;
+
 export interface PplxMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: PplxContent;
 }
 
 interface PplxCompletionChoice {

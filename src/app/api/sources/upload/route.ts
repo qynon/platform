@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(parseText(buf.toString("utf8"), filename));
     }
     if (mime.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|tiff?|heic|heif|avif|ico|jp2)$/i.test(lower)) {
-      return NextResponse.json(await parseImage(buf, filename, mime));
+      const parsed = await parseImage(buf, filename, mime);
+      return NextResponse.json(parsed);
     }
     // Fallback: try to parse as text
     return NextResponse.json(parseText(buf.toString("utf8"), filename));

@@ -10,13 +10,19 @@ interface DiscoverResult {
   summary: string;
 }
 
-export function DiscoverDialog({ onClose }: { onClose: () => void }) {
+export function DiscoverDialog({
+  onClose,
+  initialMode = "discover",
+}: {
+  onClose: () => void;
+  initialMode?: "discover" | "fast" | "deep";
+}) {
   const addSource = useApp((s) => s.addSource);
   const updateSource = useApp((s) => s.updateSource);
   const setDeepRunning = useApp((s) => s.setDeepResearchRunning);
 
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<"discover" | "fast" | "deep">("discover");
+  const [mode, setMode] = useState<"discover" | "fast" | "deep">(initialMode);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<DiscoverResult[] | null>(null);
   const [deepReport, setDeepReport] = useState<string | null>(null);

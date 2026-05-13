@@ -10,6 +10,7 @@ export type SourceKind =
   | "pptx"
   | "image"
   | "epub"
+  | "assignment"
   | "paste";
 
 export interface Source {
@@ -30,7 +31,28 @@ export interface Source {
   bytes?: number;
   /** Whether this source is enabled and included in chat grounding. */
   enabled: boolean;
+  /**
+   * For image sources: data URI (data:image/png;base64,...) sent to the
+   * Perplexity multimodal endpoint so the model can actually see the image.
+   */
+  imageDataUri?: string;
+  /**
+   * For "assignment" sources: structured rubric / solution metadata so we
+   * can run a graded practice workflow against the source content.
+   */
+  assignment?: AssignmentSpec;
   createdAt: number;
+}
+
+export interface AssignmentSpec {
+  /** Subject area, e.g. "math", "physics", "literature" — free-form. */
+  subject?: string;
+  /** Difficulty tier; informs the AI grader's expectations. */
+  difficulty?: "easy" | "medium" | "hard";
+  /** What a correct answer should demonstrate (for grading). */
+  rubric?: string;
+  /** Cached canonical solution generated once via /api/practice?mode=solve. */
+  solution?: string;
 }
 
 export type ChatRole = "user" | "assistant";
@@ -78,7 +100,8 @@ export type StudioArtifactKind =
   | "slides"
   | "infographic"
   | "audio-overview"
-  | "video-overview";
+  | "video-overview"
+  | "practice";
 
 export interface StudioArtifact {
   id: string;
