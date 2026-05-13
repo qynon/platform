@@ -71,7 +71,12 @@ export async function pplxChat(opts: {
   if (opts.reasoningEffort) body.reasoning_effort = opts.reasoningEffort;
   if (opts.maxTokens) body.max_tokens = opts.maxTokens;
   if (opts.webSearch === false) {
-    body.search_mode = "off";
+    // Perplexity does not expose a hard "disable search" flag, but we can:
+    //   1) shrink the search context to the minimum,
+    //   2) restrict the search to a domain that returns no useful results,
+    //      so the model has to rely on the SOURCES we provide via system prompt.
+    body.web_search_options = { search_context_size: "low" };
+    body.search_domain_filter = ["-google.com", "-wikipedia.org"];
   }
 
   const res = await fetch(`${API_BASE}/chat/completions`, {
