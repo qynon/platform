@@ -1,0 +1,33 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/app/api/sources/upload/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/sources/url/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/sources/summarize/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/chat/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/studio/route.ts": {
+      "memory": 1024,
+      "maxDuration": 120
+    },
+    "src/app/api/research/route.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    },
+    "src/app/api/notes/quick/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+}
