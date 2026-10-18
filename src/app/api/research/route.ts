@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pplxChat } from "@/lib/perplexity";
+import { parallelSearch } from "@/lib/parallel-search";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -11,10 +12,31 @@ interface ResearchBody {
 
 export async function POST(req: NextRequest) {
   try {
-    const { query, mode } = (await req.json()) as ResearchBody;
-    if (!query) return NextResponse.json({ error: "query required" }, { status: 400 });
+    const body = (await req.json()) as ResearchBody | null;
+    if (!body || typeof body.query !== "string" || !body.query.trim() || body.query.length > 4000) {
+      return NextResponse.json({ error: "query must contain 1-4000 characters" }, { status: 400 });
+    }
+    const query = body.query.trim();
+    const mode = body.mode;
+    if (!["discover", "fast", "deep"].includes(mode)) {
+      return NextResponse.json({ error: "invalid research mode" }, { status: 400 });
+    }
+    const provider = process.env.RESEARCH_PROVIDER;
+    if (provider === "disabled") {
+      return NextResponse.json({ error: "Research is disabled" }, { status: 403 });
+    }
+    if (provider && provider !== "parallel" && provider !== "perplexity") {
+      throw new Error("RESEARCH_PROVIDER must be parallel, perplexity or disabled.");
+    }
+    req.signal.throwIfAborted();
 
     if (mode === "discover" || mode === "fast") {
+      // An intentionally configured Perplexity key keeps the existing behavior.
+      const useParallel = provider === "parallel" || (!provider && !process.env.PERPLEXITY_API_KEY);
+      if (useParallel) {
+        const sources = await parallelSearch(query, req.signal);
+        return NextResponse.json({ mode, sources, raw: "" });
+      }
       const prompt = `You are helping a researcher build a notebook. The user wants to investigate: "${query}".
 
 Find up to 10 highly relevant, primary-quality web sources. For EACH source return:
@@ -62,9 +84,11 @@ No prose around the JSON.`;
       searchResults: result.search_results ?? [],
     });
   } catch (e) {
+    const status = req.signal.aborted ? 499
+      : e instanceof Error && e.name === "TimeoutError" ? 504 : 500;
     return NextResponse.json(
       { error: String(e instanceof Error ? e.message : e) },
-      { status: 500 },
+      { status },
     );
   }
 }

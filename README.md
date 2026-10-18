@@ -17,7 +17,9 @@ Open clone of Google NotebookLM in **Kazakh (kk-KZ)**, powered by the
 - **Chat** with the Perplexity API, grounded in the enabled sources. Inline
   `[N]` citations are clickable and open the source text. Two styles:
   *Default* and *Learning Guide* (Socratic).
-- **Discover Sources / Fast Research / Deep Research** via `sonar-deep-research`.
+- **Discover Sources / Fast Research** with keyless Parallel Search MCP or
+  configured Perplexity (`sonar-pro` / `sonar`). **Deep Research** generates
+  reports with `sonar-deep-research`.
 - **Studio** generators:
   - Reports (Custom / FAQ / Study guide / Briefing)
   - Data Tables (CSV export)
@@ -43,6 +45,38 @@ npm run dev
 ```
 
 Open <http://localhost:3000>.
+
+### Source discovery without an API key
+
+With no `PERPLEXITY_API_KEY` configured, **Discover Sources** and **Fast Research**
+use [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+for free web search in Fast mode, with no account or API key. Enter a topic in
+Discover Sources, select results, and import them into your notebook. The result
+summaries are excerpts from the pages. Searches have a 30-second deadline;
+service errors are shown in the dialog. Free access is intended for light use
+and is subject to service limits.
+
+An existing `PERPLEXITY_API_KEY` keeps source discovery on Perplexity. Set the
+server environment variable `RESEARCH_PROVIDER` to override source discovery:
+
+| Value | Behavior |
+|-------|----------|
+| Unset | Perplexity when its key is configured; otherwise anonymous Parallel |
+| `parallel` | Anonymous Parallel, even with a Perplexity key configured |
+| `perplexity` | Perplexity only; requires `PERPLEXITY_API_KEY` |
+| `disabled` | Reject all research requests, including Deep Research |
+
+Provider errors never cause a switch to another provider. Queries are sent to
+the selected service. Parallel uses the Streamable HTTP MCP endpoint
+`https://search.parallel.ai/mcp`; it does not read or forward API keys.
+URL imports continue through the existing page parser.
+
+**Deep Research, chat, source auto-summaries, Studio and note generation still
+require `PERPLEXITY_API_KEY`.** Deep Research uses Perplexity regardless of the
+source discovery provider. To run only source discovery, omit the key from the
+setup above and start the app with `npm run dev`.
+
+Run the research route tests with `npm test`.
 
 ### Deploying to Vercel
 
